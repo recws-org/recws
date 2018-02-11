@@ -160,6 +160,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 
 	rc.dialer = websocket.DefaultDialer
 	rc.dialer.HandshakeTimeout = rc.HandshakeTimeout
+	rc.reqHeader = reqHeader
 
 	go func() {
 		rc.connect()
