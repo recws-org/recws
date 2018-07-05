@@ -117,6 +117,25 @@ func (rc *RecConn) WriteJSON(v interface{}) error {
 	return err
 }
 
+// ReadJSON reads the next JSON-encoded message from the connection and stores
+// it in the value pointed to by v.
+//
+// See the documentation for the encoding/json Unmarshal function for details
+// about the conversion of JSON to a Go value.
+//
+// If the connection is closed ErrNotConnected is returned
+func (rc *RecConn) ReadJSON(v interface{}) error {
+	err := ErrNotConnected
+	if rc.IsConnected() {
+		err = rc.Conn.ReadJSON(v)
+		if err != nil {
+			rc.closeAndReconnect()
+		}
+	}
+
+	return err
+}
+
 // Dial creates a new client connection.
 // The URL url specifies the host and request URI. Use requestHeader to specify
 // the origin (Origin), subprotocols (Sec-WebSocket-Protocol) and cookies
