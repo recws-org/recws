@@ -47,8 +47,8 @@ type RecConn struct {
 	*websocket.Conn
 }
 
-// CloseAndRecconect will try to reconnect.
-func (rc *RecConn) closeAndRecconect() {
+// CloseAndReconnect will try to reconnect.
+func (rc *RecConn) closeAndReconnect() {
 	rc.Close()
 	go func() {
 		rc.connect()
@@ -76,7 +76,7 @@ func (rc *RecConn) ReadMessage() (messageType int, message []byte, err error) {
 	if rc.IsConnected() {
 		messageType, message, err = rc.Conn.ReadMessage()
 		if err != nil {
-			rc.closeAndRecconect()
+			rc.closeAndReconnect()
 		}
 	}
 
@@ -92,7 +92,7 @@ func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
 	if rc.IsConnected() {
 		err = rc.Conn.WriteMessage(messageType, data)
 		if err != nil {
-			rc.closeAndRecconect()
+			rc.closeAndReconnect()
 		}
 	}
 
@@ -110,7 +110,26 @@ func (rc *RecConn) WriteJSON(v interface{}) error {
 	if rc.IsConnected() {
 		err = rc.Conn.WriteJSON(v)
 		if err != nil {
-			rc.closeAndRecconect()
+			rc.closeAndReconnect()
+		}
+	}
+
+	return err
+}
+
+// ReadJSON reads the next JSON-encoded message from the connection and stores
+// it in the value pointed to by v.
+//
+// See the documentation for the encoding/json Unmarshal function for details
+// about the conversion of JSON to a Go value.
+//
+// If the connection is closed ErrNotConnected is returned
+func (rc *RecConn) ReadJSON(v interface{}) error {
+	err := ErrNotConnected
+	if rc.IsConnected() {
+		err = rc.Conn.ReadJSON(v)
+		if err != nil {
+			rc.closeAndReconnect()
 		}
 	}
 
