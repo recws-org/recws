@@ -47,8 +47,8 @@ type RecConn struct {
 	*websocket.Conn
 }
 
-// CloseAndRecconect will try to reconnect.
-func (rc *RecConn) closeAndRecconect() {
+// CloseAndReconnect will try to reconnect.
+func (rc *RecConn) closeAndReconnect() {
 	rc.Close()
 	go func() {
 		rc.connect()
@@ -76,7 +76,7 @@ func (rc *RecConn) ReadMessage() (messageType int, message []byte, err error) {
 	if rc.IsConnected() {
 		messageType, message, err = rc.Conn.ReadMessage()
 		if err != nil {
-			rc.closeAndRecconect()
+			rc.closeAndReconnect()
 		}
 	}
 
@@ -92,7 +92,7 @@ func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
 	if rc.IsConnected() {
 		err = rc.Conn.WriteMessage(messageType, data)
 		if err != nil {
-			rc.closeAndRecconect()
+			rc.closeAndReconnect()
 		}
 	}
 
@@ -110,7 +110,7 @@ func (rc *RecConn) WriteJSON(v interface{}) error {
 	if rc.IsConnected() {
 		err = rc.Conn.WriteJSON(v)
 		if err != nil {
-			rc.closeAndRecconect()
+			rc.closeAndReconnect()
 		}
 	}
 
