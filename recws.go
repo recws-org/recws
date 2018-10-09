@@ -289,7 +289,6 @@ func (rc *RecConn) hasSubscribeHandler() bool {
 
 func (rc *RecConn) connect() {
 	b := rc.getBackoff()
-
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for {
