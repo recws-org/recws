@@ -247,10 +247,10 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	rc.setDefaultDialer()
 
 	// Connect
-	rc.connect()
+	go rc.connect()
 
 	// wait on first attempt
-	time.Sleep(rc.HandshakeTimeout)
+	time.Sleep(rc.getHandshakeTimeout())
 }
 
 // GetURL returns current connection url
