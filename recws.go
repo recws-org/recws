@@ -215,17 +215,17 @@ func (rc *RecConn) connect() {
 		if err == nil {
 			if !rc.NonVerbose {
 				log.Printf("Dial: connection was successfully established with %s\n", rc.url)
-			}
 
-			if rc.SubscribeHandler == nil {
-				return
-			}
+				if rc.SubscribeHandler == nil {
+					return
+				}
 
-			if err := rc.SubscribeHandler(rc); err != nil {
-				log.Fatalf("Dial: connect handler failed with %s", err.Error())
-			}
+				if err := rc.SubscribeHandler(rc); err != nil {
+					log.Fatalf("Dial: connect handler failed with %s", err.Error())
+				}
 
-			log.Printf("Dial: connect handler was successfully established with %s\n", rc.url)
+				log.Printf("Dial: connect handler was successfully established with %s\n", rc.url)
+			}
 
 			return
 		}
