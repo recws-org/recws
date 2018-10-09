@@ -211,11 +211,19 @@ func (rc *RecConn) setDefaultHandshakeTimeout() {
 }
 
 func (rc *RecConn) setDefaultDialer() {
+	handshakeTimeout := rc.getHandshakeTimeout()
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
 	rc.dialer = websocket.DefaultDialer
-	rc.dialer.HandshakeTimeout = rc.HandshakeTimeout
+	rc.dialer.HandshakeTimeout = handshakeTimeout
+}
+
+func (rc *RecConn) getHandshakeTimeout() time.Duration {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.HandshakeTimeout
 }
 
 // Dial creates a new client connection.
