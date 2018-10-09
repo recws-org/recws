@@ -230,6 +230,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 		log.Fatalf("Dial: %v", err)
 	}
 
+	// Config
 	rc.setURL(urlStr)
 	rc.setDefaultRecIntvlMin()
 	rc.setDefaultRecIntvlMax()
@@ -237,6 +238,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	rc.setDefaultHandshakeTimeout()
 	rc.setDefaultDialer()
 
+	// Connect
 	go rc.connect()
 
 	// wait on first attempt
@@ -270,9 +272,9 @@ func (rc *RecConn) connect() {
 
 	for {
 		nextItvl := b.Duration()
-		rc.mu.RLock()
+		rc.mu.Lock()
 		wsConn, httpResp, err := rc.dialer.Dial(rc.url, rc.reqHeader)
-		rc.mu.RUnlock()
+		rc.mu.Unlock()
 
 		rc.mu.Lock()
 		rc.Conn = wsConn
