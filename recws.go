@@ -294,9 +294,7 @@ func (rc *RecConn) connect() {
 
 	for {
 		nextItvl := b.Duration()
-		rc.mu.RLock()
 		wsConn, httpResp, err := rc.dialer.Dial(rc.url, rc.reqHeader)
-		rc.mu.RUnlock()
 
 		rc.mu.Lock()
 		rc.Conn = wsConn
