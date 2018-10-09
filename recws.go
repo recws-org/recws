@@ -218,7 +218,7 @@ func (rc *RecConn) connect() {
 			}
 
 			if rc.ConnectHandler == nil {
-				break
+				return
 			}
 
 			if err := rc.ConnectHandler(rc); err != nil {
