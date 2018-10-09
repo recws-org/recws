@@ -141,9 +141,13 @@ func (rc *RecConn) ReadJSON(v interface{}) error {
 // (Cookie). Use GetHTTPResponse() method for the response.Header to get
 // the selected subprotocol (Sec-WebSocket-Protocol) and cookies (Set-Cookie).
 func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
 	if urlStr == "" {
 		log.Fatal("Dial: Url cannot be empty")
 	}
+
 	u, err := url.Parse(urlStr)
 
 	if err != nil {
