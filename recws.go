@@ -35,6 +35,8 @@ type RecConn struct {
 	HandshakeTimeout time.Duration
 	// NonVerbose suppress connecting/reconnecting messages.
 	NonVerbose bool
+	// ConnectHandler fires after the connection successfully establish.
+	ConnectHandler func(rc *RecConn) error
 
 	mu          sync.Mutex
 	url         string
@@ -50,10 +52,7 @@ type RecConn struct {
 // CloseAndReconnect will try to reconnect.
 func (rc *RecConn) closeAndReconnect() {
 	rc.Close()
-	go func() {
-		rc.connect()
-	}()
-
+	go rc.connect()
 }
 
 // Close closes the underlying network connection without
@@ -180,12 +179,15 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	rc.dialer = websocket.DefaultDialer
 	rc.dialer.HandshakeTimeout = rc.HandshakeTimeout
 
-	go func() {
-		rc.connect()
-	}()
+	go rc.connect()
 
 	// wait on first attempt
 	time.Sleep(rc.HandshakeTimeout)
+}
+
+// GetURL returns current connection url
+func (rc *RecConn) GetURL() string {
+	return rc.url
 }
 
 func (rc *RecConn) connect() {
@@ -214,12 +216,23 @@ func (rc *RecConn) connect() {
 			if !rc.NonVerbose {
 				log.Printf("Dial: connection was successfully established with %s\n", rc.url)
 			}
-			break
-		} else {
-			if !rc.NonVerbose {
-				log.Println(err)
-				log.Println("Dial: will try again in", nextItvl, "seconds.")
+
+			if rc.ConnectHandler == nil {
+				break
 			}
+
+			if err := rc.ConnectHandler(rc); err != nil {
+				log.Fatalf("Dial: connect handler failed with %s", err.Error())
+			}
+
+			log.Printf("Dial: connect handler was successfully established with %s\n", rc.url)
+
+			return
+		}
+
+		if !rc.NonVerbose {
+			log.Println(err)
+			log.Println("Dial: will try again in", nextItvl, "seconds.")
 		}
 
 		time.Sleep(nextItvl)
@@ -251,4 +264,11 @@ func (rc *RecConn) IsConnected() bool {
 	defer rc.mu.Unlock()
 
 	return rc.isConnected
+}
+
+func (rc *RecConn) GetConnection() *RecConn {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	return rc
 }
