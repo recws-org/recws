@@ -280,6 +280,13 @@ func (rc *RecConn) getBackoff() *backoff.Backoff {
 	}
 }
 
+func (rc *RecConn) hasSubscribeHandler() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.SubscribeHandler != nil
+}
+
 func (rc *RecConn) connect() {
 	b := rc.getBackoff()
 
@@ -302,7 +309,7 @@ func (rc *RecConn) connect() {
 			if !rc.getNonVerbose() {
 				log.Printf("Dial: connection was successfully established with %s\n", rc.url)
 
-				if rc.SubscribeHandler == nil {
+				if !rc.hasSubscribeHandler() {
 					return
 				}
 
