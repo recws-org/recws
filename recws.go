@@ -210,13 +210,13 @@ func (rc *RecConn) setDefaultHandshakeTimeout() {
 	}
 }
 
-func (rc *RecConn) setDefaultDialer() {
-	handshakeTimeout := rc.getHandshakeTimeout()
+func (rc *RecConn) setDefaultDialer(handshakeTimeout time.Duration) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	rc.dialer = websocket.DefaultDialer
-	rc.dialer.HandshakeTimeout = handshakeTimeout
+	rc.dialer = &websocket.Dialer{
+		HandshakeTimeout: handshakeTimeout,
+	}
 }
 
 func (rc *RecConn) getHandshakeTimeout() time.Duration {
@@ -244,7 +244,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	rc.setDefaultRecIntvlMax()
 	rc.setDefaultRecIntvlFactor()
 	rc.setDefaultHandshakeTimeout()
-	rc.setDefaultDialer()
+	rc.setDefaultDialer(rc.getHandshakeTimeout())
 
 	// Connect
 	go rc.connect()
@@ -268,19 +268,28 @@ func (rc *RecConn) getNonVerbose() bool {
 	return rc.NonVerbose
 }
 
-func (rc *RecConn) connect() {
-	b := &backoff.Backoff{
+func (rc *RecConn) getBackoff() *backoff.Backoff {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return &backoff.Backoff{
 		Min:    rc.RecIntvlMin,
 		Max:    rc.RecIntvlMax,
 		Factor: rc.RecIntvlFactor,
 		Jitter: true,
 	}
+}
+
+func (rc *RecConn) connect() {
+	b := rc.getBackoff()
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for {
 		nextItvl := b.Duration()
+		rc.mu.RLock()
 		wsConn, httpResp, err := rc.dialer.Dial(rc.url, rc.reqHeader)
+		rc.mu.RUnlock()
 
 		rc.mu.Lock()
 		rc.Conn = wsConn
