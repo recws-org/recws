@@ -247,7 +247,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	rc.setDefaultDialer()
 
 	// Connect
-	go rc.connect()
+	rc.connect()
 
 	// wait on first attempt
 	time.Sleep(rc.HandshakeTimeout)
@@ -280,9 +280,7 @@ func (rc *RecConn) connect() {
 
 	for {
 		nextItvl := b.Duration()
-		rc.mu.Lock()
 		wsConn, httpResp, err := rc.dialer.Dial(rc.url, rc.reqHeader)
-		rc.mu.Unlock()
 
 		rc.mu.Lock()
 		rc.Conn = wsConn
