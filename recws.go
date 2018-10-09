@@ -35,8 +35,8 @@ type RecConn struct {
 	HandshakeTimeout time.Duration
 	// NonVerbose suppress connecting/reconnecting messages.
 	NonVerbose bool
-	// ConnectHandler fires after the connection successfully establish.
-	ConnectHandler func(rc *RecConn) error
+	// SubscribeHandler fires after the connection successfully establish.
+	SubscribeHandler func(rc *RecConn) error
 
 	mu          sync.Mutex
 	url         string
@@ -217,11 +217,11 @@ func (rc *RecConn) connect() {
 				log.Printf("Dial: connection was successfully established with %s\n", rc.url)
 			}
 
-			if rc.ConnectHandler == nil {
+			if rc.SubscribeHandler == nil {
 				return
 			}
 
-			if err := rc.ConnectHandler(rc); err != nil {
+			if err := rc.SubscribeHandler(rc); err != nil {
 				log.Fatalf("Dial: connect handler failed with %s", err.Error())
 			}
 
