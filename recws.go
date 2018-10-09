@@ -36,7 +36,7 @@ type RecConn struct {
 	// NonVerbose suppress connecting/reconnecting messages.
 	NonVerbose bool
 	// SubscribeHandler fires after the connection successfully establish.
-	SubscribeHandler func(rc *RecConn) error
+	SubscribeHandler func() error
 
 	mu          sync.RWMutex
 	url         string
@@ -299,7 +299,7 @@ func (rc *RecConn) connect() {
 					return
 				}
 
-				if err := rc.SubscribeHandler(rc); err != nil {
+				if err := rc.SubscribeHandler(); err != nil {
 					log.Fatalf("Dial: connect handler failed with %s", err.Error())
 				}
 
