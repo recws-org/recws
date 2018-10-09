@@ -265,10 +265,3 @@ func (rc *RecConn) IsConnected() bool {
 
 	return rc.isConnected
 }
-
-func (rc *RecConn) GetConnection() *RecConn {
-	rc.mu.Lock()
-	defer rc.mu.Unlock()
-
-	return rc
-}
