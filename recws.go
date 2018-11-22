@@ -210,6 +210,7 @@ func (rc *RecConn) setDefaultHandshakeTimeout() {
 	}
 }
 
+
 func (rc *RecConn) setDefaultDialer(handshakeTimeout time.Duration) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
