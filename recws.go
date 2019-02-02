@@ -66,10 +66,10 @@ func (rc *RecConn) setIsConnected(state bool) {
 // Close closes the underlying network connection without
 // sending or waiting for a close frame.
 func (rc *RecConn) Close() {
-	rc.mu.RLock()
-	defer rc.mu.RUnlock()
 	if rc.Conn != nil {
+		rc.mu.RLock()
 		rc.Conn.Close()
+		rc.mu.RUnlock()
 	}
 
 	rc.setIsConnected(false)
