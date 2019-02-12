@@ -63,13 +63,20 @@ func (rc *RecConn) setIsConnected(state bool) {
 	rc.isConnected = state
 }
 
+func (rc *RecConn) getConn() *websocket.Conn {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.Conn
+}
+
 // Close closes the underlying network connection without
 // sending or waiting for a close frame.
 func (rc *RecConn) Close() {
-	rc.mu.RLock()
-	defer rc.mu.RUnlock()
-	if rc.Conn != nil {
+	if rc.getConn() != nil {
+		rc.mu.Lock()
 		rc.Conn.Close()
+		rc.mu.Unlock()
 	}
 
 	rc.setIsConnected(false)
@@ -98,7 +105,9 @@ func (rc *RecConn) ReadMessage() (messageType int, message []byte, err error) {
 func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
 	err := ErrNotConnected
 	if rc.IsConnected() {
+		rc.mu.Lock()
 		err = rc.Conn.WriteMessage(messageType, data)
+		rc.mu.Unlock()
 		if err != nil {
 			rc.closeAndReconnect()
 		}
@@ -116,7 +125,9 @@ func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
 func (rc *RecConn) WriteJSON(v interface{}) error {
 	err := ErrNotConnected
 	if rc.IsConnected() {
+		rc.mu.Lock()
 		err = rc.Conn.WriteJSON(v)
+		rc.mu.Unlock()
 		if err != nil {
 			rc.closeAndReconnect()
 		}
@@ -209,7 +220,6 @@ func (rc *RecConn) setDefaultHandshakeTimeout() {
 		rc.HandshakeTimeout = 2 * time.Second
 	}
 }
-
 
 func (rc *RecConn) setDefaultDialer(handshakeTimeout time.Duration) {
 	rc.mu.Lock()
