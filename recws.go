@@ -165,6 +165,13 @@ func (rc *RecConn) setURL(url string) {
 	rc.url = url
 }
 
+func (rc *RecConn) setReqHeader(reqHeader http.Header) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	rc.reqHeader = reqHeader
+}
+
 // parseURL parses current url
 func (rc *RecConn) parseURL(urlStr string) (string, error) {
 	if urlStr == "" {
@@ -254,6 +261,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 
 	// Config
 	rc.setURL(urlStr)
+	rc.setReqHeader(reqHeader)
 	rc.setDefaultRecIntvlMin()
 	rc.setDefaultRecIntvlMax()
 	rc.setDefaultRecIntvlFactor()
