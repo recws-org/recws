@@ -340,6 +340,10 @@ func (rc *RecConn) keepAlive() {
 		defer ticker.Stop()
 
 		for {
+			if (!rc.IsConnected()) {
+				continue;
+			}
+
 			rc.writeControlPingMessage()
 			<-ticker.C
 			if time.Now().Sub(keepAliveResponse.getLastResponse()) > rc.getKeepAliveTimeout() {
