@@ -33,6 +33,9 @@ type RecConn struct {
 	// HandshakeTimeout specifies the duration for the handshake to complete,
 	// default to 2 seconds
 	HandshakeTimeout time.Duration
+	// Proxy specifies the proxy function for the dialer
+	// defaults to ProxyFromEnvironment
+	Proxy func(*http.Request) (*url.URL, error)
 	// NonVerbose suppress connecting/reconnecting messages.
 	NonVerbose bool
 	// SubscribeHandler fires after the connection successfully establish.
@@ -231,12 +234,22 @@ func (rc *RecConn) setDefaultHandshakeTimeout() {
 	}
 }
 
+func (rc *RecConn) setDefaultProxy() {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	if rc.Proxy == nil {
+		rc.Proxy = http.ProxyFromEnvironment
+	}
+}
+
 func (rc *RecConn) setDefaultDialer(handshakeTimeout time.Duration) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
 	rc.dialer = &websocket.Dialer{
 		HandshakeTimeout: handshakeTimeout,
+		Proxy: rc.Proxy,
 	}
 }
 
@@ -266,6 +279,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	rc.setDefaultRecIntvlMax()
 	rc.setDefaultRecIntvlFactor()
 	rc.setDefaultHandshakeTimeout()
+	rc.setDefaultProxy()
 	rc.setDefaultDialer(rc.getHandshakeTimeout())
 
 	// Connect
