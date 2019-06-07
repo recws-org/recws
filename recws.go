@@ -36,20 +36,20 @@ type RecConn struct {
 	// Proxy specifies the proxy function for the dialer
 	// defaults to ProxyFromEnvironment
 	Proxy func(*http.Request) (*url.URL, error)
-	// NonVerbose suppress connecting/reconnecting messages.
-	NonVerbose bool
 	// SubscribeHandler fires after the connection successfully establish.
 	SubscribeHandler func() error
 	// KeepAliveTimeout is an interval for sending ping/pong messages
 	// disabled if 0
 	KeepAliveTimeout time.Duration
+	// NonVerbose suppress connecting/reconnecting messages.
+	NonVerbose bool
 
+	isConnected bool
 	mu          sync.RWMutex
 	url         string
 	reqHeader   http.Header
 	httpResp    *http.Response
 	dialErr     error
-	isConnected bool
 	dialer      *websocket.Dialer
 
 	*websocket.Conn
@@ -249,7 +249,7 @@ func (rc *RecConn) setDefaultDialer(handshakeTimeout time.Duration) {
 
 	rc.dialer = &websocket.Dialer{
 		HandshakeTimeout: handshakeTimeout,
-		Proxy: rc.Proxy,
+		Proxy:            rc.Proxy,
 	}
 }
 
@@ -354,13 +354,16 @@ func (rc *RecConn) keepAlive() {
 		defer ticker.Stop()
 
 		for {
-			if (!rc.IsConnected()) {
-				continue;
+			if !rc.IsConnected() {
+				continue
 			}
 
-			rc.writeControlPingMessage()
+			if err := rc.writeControlPingMessage(); err != nil {
+				log.Println(err)
+			}
+
 			<-ticker.C
-			if time.Now().Sub(keepAliveResponse.getLastResponse()) > rc.getKeepAliveTimeout() {
+			if time.Since(keepAliveResponse.getLastResponse()) > rc.getKeepAliveTimeout() {
 				rc.closeAndReconnect()
 				return
 			}
