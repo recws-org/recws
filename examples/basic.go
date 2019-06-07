@@ -9,7 +9,9 @@ import (
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ws := recws.RecConn{}
+	ws := recws.RecConn{
+		KeepAliveTimeout: 10 * time.Second,
+	}
 	ws.Dial("wss://echo.websocket.org", nil)
 
 	go func() {
