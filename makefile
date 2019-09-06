@@ -2,7 +2,7 @@ install:
 	go get -t -v -u ./...
 
 linter:
-	golangci-lint run --enable-all
+	golangci-lint run
 
 test:
 	make linter
