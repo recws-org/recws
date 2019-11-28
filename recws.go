@@ -37,7 +37,8 @@ type RecConn struct {
 	// Proxy specifies the proxy function for the dialer
 	// defaults to ProxyFromEnvironment
 	Proxy func(*http.Request) (*url.URL, error)
-	TLSClientConfig  *tls.Config
+	// Client TLS config to use on reconnect
+	TLSClientConfig *tls.Config
 	// SubscribeHandler fires after the connection successfully establish.
 	SubscribeHandler func() error
 	// KeepAliveTimeout is an interval for sending ping/pong messages
