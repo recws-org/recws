@@ -56,7 +56,7 @@ type RecConn struct {
 }
 
 // CloseAndReconnect will try to reconnect.
-func (rc *RecConn) closeAndReconnect() {
+func (rc *RecConn) CloseAndReconnect() {
 	rc.Close()
 	go rc.connect()
 }
@@ -97,7 +97,7 @@ func (rc *RecConn) ReadMessage() (messageType int, message []byte, err error) {
 	if rc.IsConnected() {
 		messageType, message, err = rc.Conn.ReadMessage()
 		if err != nil {
-			rc.closeAndReconnect()
+			rc.CloseAndReconnect()
 		}
 	}
 
@@ -115,7 +115,7 @@ func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
 		err = rc.Conn.WriteMessage(messageType, data)
 		rc.mu.Unlock()
 		if err != nil {
-			rc.closeAndReconnect()
+			rc.CloseAndReconnect()
 		}
 	}
 
@@ -135,7 +135,7 @@ func (rc *RecConn) WriteJSON(v interface{}) error {
 		err = rc.Conn.WriteJSON(v)
 		rc.mu.Unlock()
 		if err != nil {
-			rc.closeAndReconnect()
+			rc.CloseAndReconnect()
 		}
 	}
 
@@ -154,7 +154,7 @@ func (rc *RecConn) ReadJSON(v interface{}) error {
 	if rc.IsConnected() {
 		err = rc.Conn.ReadJSON(v)
 		if err != nil {
-			rc.closeAndReconnect()
+			rc.CloseAndReconnect()
 		}
 	}
 
@@ -364,7 +364,7 @@ func (rc *RecConn) keepAlive() {
 
 			<-ticker.C
 			if time.Since(keepAliveResponse.getLastResponse()) > rc.getKeepAliveTimeout() {
-				rc.closeAndReconnect()
+				rc.CloseAndReconnect()
 				return
 			}
 		}
