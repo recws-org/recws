@@ -1,0 +1,18 @@
+notifications:
+  email: false
+  slack: false
+
+language: go
+
+env:
+  - GO111MODULE=on
+
+go:
+  - "1.13.x"
+
+before_script:
+  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.21.0
+
+script:
+  - make install
+  - make linter
