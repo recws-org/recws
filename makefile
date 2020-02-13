@@ -1,5 +1,5 @@
 install:
-	go get -t -v -u ./...
+	go get
 
 linter:
 	golangci-lint run
