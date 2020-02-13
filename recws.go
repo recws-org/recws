@@ -404,7 +404,6 @@ func (rc *RecConn) connect() {
 		rc.httpResp = httpResp
 		rc.mu.Unlock()
 
-
 		if err == nil {
 			if !rc.getNonVerbose() {
 				log.Printf("Dial: connection was successfully established with %s\n", rc.url)
@@ -412,9 +411,7 @@ func (rc *RecConn) connect() {
 
 			if rc.hasSubscribeHandler() {
 				if err := rc.SubscribeHandler(); err != nil {
-					if !rc.getNonVerbose() {
-						log.Fatalf("Dial: connect handler failed with %s", err.Error())
-					}
+					log.Fatalf("Dial: connect handler failed with %s", err.Error())
 				}
 				if !rc.getNonVerbose() {
 					log.Printf("Dial: connect handler was successfully established with %s\n", rc.url)
