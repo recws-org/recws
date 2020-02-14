@@ -1,8 +1,8 @@
-<img width="150" src="https://raw.githubusercontent.com/recws-org/recws/master/recws.png" alt="logo">
+<img width="100" src="https://raw.githubusercontent.com/recws-org/recws/master/recws.png" alt="logo">
 
 # recws
 
-Reconnecting WebSocket is a websocket client based on [gorilla/websocket](https://github.com/gorilla/websocket) that will automatically reconnect if the connection is dropped.
+Reconnecting WebSocket is a websocket client based on [gorilla/websocket](https://github.com/gorilla/websocket) that will automatically reconnect if the connection is dropped - thread safe!
 
 [![Build Status](https://travis-ci.com/recws-org/recws.svg?branch=master)](https://travis-ci.com/recws-org/recws)
 [![GoDoc](https://godoc.org/github.com/mariuspass/recws?status.svg)](https://godoc.org/github.com/mariuspass/recws)
