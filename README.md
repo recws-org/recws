@@ -1,4 +1,4 @@
-<img width="120" src="https://raw.githubusercontent.com/recws-org/recws/master/recws-logo.png" alt="logo">
+<img width="150" src="https://raw.githubusercontent.com/recws-org/recws/master/recws-logo.png" alt="logo">
 
 # recws
 
