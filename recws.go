@@ -395,6 +395,10 @@ func (rc *RecConn) connect() {
 
 	for {
 		nextItvl := b.Duration()
+		if rc.IsConnected() {
+			time.Sleep(nextItvl)
+			continue
+		}
 		wsConn, httpResp, err := rc.dialer.Dial(rc.url, rc.reqHeader)
 
 		rc.mu.Lock()
@@ -421,7 +425,7 @@ func (rc *RecConn) connect() {
 			if rc.getKeepAliveTimeout() != 0 {
 				rc.keepAlive()
 			}
-		
+
 			return
 		}
 
