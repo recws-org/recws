@@ -54,7 +54,8 @@ type RecConn struct {
 	httpResp    *http.Response
 	dialErr     error
 	dialer      *websocket.Dialer
-	close       chan (bool)
+	// if set to true, close stops dial reconnection
+	close chan (bool)
 
 	*websocket.Conn
 }
@@ -291,9 +292,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 		log.Fatalf("Dial: %v", err)
 	}
 
-	// Close channel
 	rc.close = make(chan bool, 1)
-	
 	// Config
 	rc.setURL(urlStr)
 	rc.setReqHeader(reqHeader)
