@@ -54,8 +54,6 @@ type RecConn struct {
 	httpResp    *http.Response
 	dialErr     error
 	dialer      *websocket.Dialer
-	// if set to true, close stops dial reconnection
-	close chan (bool)
 
 	*websocket.Conn
 }
@@ -89,7 +87,7 @@ func (rc *RecConn) Close() {
 		rc.Conn.Close()
 		rc.mu.Unlock()
 	}
-	rc.close <- true
+
 	rc.setIsConnected(false)
 }
 
@@ -292,7 +290,6 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 		log.Fatalf("Dial: %v", err)
 	}
 
-	rc.close = make(chan bool, 1)
 	// Config
 	rc.setURL(urlStr)
 	rc.setReqHeader(reqHeader)
@@ -397,48 +394,43 @@ func (rc *RecConn) connect() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for {
-		select {
-		case <-rc.close:
-			return
-		default:
-			nextItvl := b.Duration()
-			wsConn, httpResp, err := rc.dialer.Dial(rc.url, rc.reqHeader)
+		nextItvl := b.Duration()
+		wsConn, httpResp, err := rc.dialer.Dial(rc.url, rc.reqHeader)
 
-			rc.mu.Lock()
-			rc.Conn = wsConn
-			rc.dialErr = err
-			rc.isConnected = err == nil
-			rc.httpResp = httpResp
-			rc.mu.Unlock()
+		rc.mu.Lock()
+		rc.Conn = wsConn
+		rc.dialErr = err
+		rc.isConnected = err == nil
+		rc.httpResp = httpResp
+		rc.mu.Unlock()
 
-			if err == nil {
-				if !rc.getNonVerbose() {
-					log.Printf("Dial: connection was successfully established with %s\n", rc.url)
-				}
-
-				if rc.hasSubscribeHandler() {
-					if err := rc.SubscribeHandler(); err != nil {
-						log.Fatalf("Dial: connect handler failed with %s", err.Error())
-					}
-					if !rc.getNonVerbose() {
-						log.Printf("Dial: connect handler was successfully established with %s\n", rc.url)
-					}
-				}
-
-				if rc.getKeepAliveTimeout() != 0 {
-					rc.keepAlive()
-				}
-
-				return
-			}
-
+		if err == nil {
 			if !rc.getNonVerbose() {
-				log.Println(err)
-				log.Println("Dial: will try again in", nextItvl, "seconds.")
+				log.Printf("Dial: connection was successfully established with %s\n", rc.url)
 			}
 
-			time.Sleep(nextItvl)
+			if rc.hasSubscribeHandler() {
+				if err := rc.SubscribeHandler(); err != nil {
+					log.Fatalf("Dial: connect handler failed with %s", err.Error())
+				}
+				if !rc.getNonVerbose() {
+					log.Printf("Dial: connect handler was successfully established with %s\n", rc.url)
+				}
+			}
+
+			if rc.getKeepAliveTimeout() != 0 {
+				rc.keepAlive()
+			}
+		
+			return
 		}
+
+		if !rc.getNonVerbose() {
+			log.Println(err)
+			log.Println("Dial: will try again in", nextItvl, "seconds.")
+		}
+
+		time.Sleep(nextItvl)
 	}
 }
 
