@@ -62,6 +62,7 @@ type RecConn struct {
 // CloseAndReconnect will try to reconnect.
 func (rc *RecConn) CloseAndReconnect() {
 	rc.Close()
+	<-rc.close
 	go rc.connect()
 }
 
