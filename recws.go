@@ -49,6 +49,8 @@ type RecConn struct {
 
 	isConnecting bool
 
+	isExiting bool
+
 	mu          sync.RWMutex
 	url         string
 	reqHeader   http.Header
@@ -74,11 +76,26 @@ func (rc *RecConn) CloseAndReconnect() {
 	go rc.connect()
 }
 
+func (rc *RecConn) CloseAndExit() {
+	if rc.IsExiting() {
+		return
+	}
+	rc.setIsExiting(true)
+	rc.Close()
+}
+
 func (rc *RecConn) setIsConnecting(state bool) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
 	rc.isConnecting = state
+}
+
+func (rc *RecConn) setIsExiting(state bool) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	rc.isExiting = state
 }
 
 func (rc *RecConn) getConn() *websocket.Conn {
@@ -406,6 +423,9 @@ func (rc *RecConn) connect() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	for {
+		if rc.IsExiting() {
+			return
+		}
 		nextItvl := b.Duration()
 		rc.mu.Lock()
 		wsConn, httpResp, err := rc.dialer.Dial(rc.url, rc.reqHeader)
@@ -476,4 +496,11 @@ func (rc *RecConn) IsConnecting() bool {
 	defer rc.mu.RUnlock()
 
 	return rc.isConnecting
+}
+
+func (rc *RecConn) IsExiting() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.isExiting
 }
