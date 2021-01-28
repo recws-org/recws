@@ -81,13 +81,6 @@ func (rc *RecConn) setIsConnecting(state bool) {
 	rc.isConnecting = state
 }
 
-func (rc *RecConn) getConn() *websocket.Conn {
-	rc.mu.RLock()
-	defer rc.mu.RUnlock()
-
-	return rc.Conn
-}
-
 // Close closes the underlying network connection without
 // sending or waiting for a close frame.
 func (rc *RecConn) Close() {
