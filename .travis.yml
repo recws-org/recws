@@ -17,5 +17,6 @@ before_script:
 
 script:
   - make install
+  - make ls-lint
   - make linter
   - go run examples/basic.go
