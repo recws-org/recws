@@ -8,12 +8,12 @@ env:
   - GO111MODULE=on
 
 go:
-  - "1.11.x"
-  - "1.12.x"
-  - "1.13.x"
+  - "1.14.x"
+  - "1.15.x"
+  - "1.16.x"
 
 before_script:
-  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.23.6
+  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.38.0
 
 script:
   - make install
