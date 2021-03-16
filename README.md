@@ -15,6 +15,10 @@ Reconnecting WebSocket is a websocket client based on [gorilla/websocket](https:
 go get github.com/recws-org/recws
 ```
 
+## Sponsors
+
+- [Makeless - Saas Ecosystem](https://github.com/makeless)
+
 ## Logo
 
 - Logo by [Anastasia Marx](https://www.behance.net/AnastasiaMarx)  
