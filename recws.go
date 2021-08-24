@@ -61,7 +61,9 @@ type RecConn struct {
 // CloseAndReconnect will try to reconnect.
 func (rc *RecConn) CloseAndReconnect() {
 	rc.Close()
-	go rc.connect()
+	connected := make(chan<- struct{})
+	defer close(connected)
+	go rc.connect(connected)
 }
 
 // setIsConnected sets state for isConnected
@@ -301,10 +303,23 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	rc.setDefaultDialer(rc.getTLSClientConfig(), rc.getHandshakeTimeout())
 
 	// Connect
-	go rc.connect()
+	connected := make(chan struct{})
+	go rc.connect(connected)
+	defer close(connected)
 
-	// wait on first attempt
-	time.Sleep(rc.getHandshakeTimeout())
+	// wait for first attempt, but only up to a point
+	timer := time.NewTimer(rc.getHandshakeTimeout())
+	defer timer.Stop()
+
+	// no default case means this select will block until one of these conditions is met.
+	// this is still guaranteed to complete, since the fallback here is the timer
+	select {
+	// in this case, the dial error is deferred until rc.GetDialError()
+	case <-timer.C:
+		return
+	case <-connected:
+		return
+	}
 }
 
 // GetURL returns current connection url
@@ -389,7 +404,7 @@ func (rc *RecConn) keepAlive() {
 	}()
 }
 
-func (rc *RecConn) connect() {
+func (rc *RecConn) connect(connected chan<- struct{}) {
 	b := rc.getBackoff()
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -421,7 +436,8 @@ func (rc *RecConn) connect() {
 			if rc.getKeepAliveTimeout() != 0 {
 				rc.keepAlive()
 			}
-		
+
+			connected <- struct{}{}
 			return
 		}
 
