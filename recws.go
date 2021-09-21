@@ -16,9 +16,13 @@ import (
 	"github.com/jpillora/backoff"
 )
 
-// ErrNotConnected is returned when the application read/writes
-// a message and the connection is closed
-var ErrNotConnected = errors.New("websocket: not connected")
+var (
+	// ErrNotConnected is returned when the application read/writes
+	// a message and the connection is closed
+	ErrNotConnected = errors.New("websocket: not connected")
+	// ErrClosedForever is returned when the connection was closed forever.
+	ErrClosedForever = errors.New("websocket: closed forever")
+)
 
 // The RecConn type represents a Reconnecting WebSocket connection.
 type RecConn struct {
@@ -47,13 +51,14 @@ type RecConn struct {
 	// NonVerbose suppress connecting/reconnecting messages.
 	NonVerbose bool
 
-	isConnected bool
-	mu          sync.RWMutex
-	url         string
-	reqHeader   http.Header
-	httpResp    *http.Response
-	dialErr     error
-	dialer      *websocket.Dialer
+	isConnected   bool
+	closedForever bool
+	mu            sync.RWMutex
+	url           string
+	reqHeader     http.Header
+	httpResp      *http.Response
+	dialErr       error
+	dialer        *websocket.Dialer
 
 	*websocket.Conn
 }
@@ -70,6 +75,14 @@ func (rc *RecConn) setIsConnected(state bool) {
 	defer rc.mu.Unlock()
 
 	rc.isConnected = state
+}
+
+// setClosedForever sets state for closedForever
+func (rc *RecConn) setClosedForever(state bool) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	rc.closedForever = state
 }
 
 func (rc *RecConn) getConn() *websocket.Conn {
@@ -91,6 +104,13 @@ func (rc *RecConn) Close() {
 	rc.setIsConnected(false)
 }
 
+// CloseForever closes the underlying network connection without
+// sending or waiting for a close frame and will prevent any further reconnects.
+func (rc *RecConn) CloseForever() {
+	rc.setClosedForever(true)
+	rc.Close()
+}
+
 // ReadMessage is a helper method for getting a reader
 // using NextReader and reading from that reader to a buffer.
 //
@@ -100,6 +120,10 @@ func (rc *RecConn) ReadMessage() (messageType int, message []byte, err error) {
 	if rc.IsConnected() {
 		messageType, message, err = rc.Conn.ReadMessage()
 		if err != nil {
+			if rc.IsClosedForever() {
+				err = ErrClosedForever
+				return
+			}
 			rc.CloseAndReconnect()
 		}
 	}
@@ -118,6 +142,9 @@ func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
 		err = rc.Conn.WriteMessage(messageType, data)
 		rc.mu.Unlock()
 		if err != nil {
+			if rc.IsClosedForever() {
+				return ErrClosedForever
+			}
 			rc.CloseAndReconnect()
 		}
 	}
@@ -138,6 +165,9 @@ func (rc *RecConn) WriteJSON(v interface{}) error {
 		err = rc.Conn.WriteJSON(v)
 		rc.mu.Unlock()
 		if err != nil {
+			if rc.IsClosedForever() {
+				return ErrClosedForever
+			}
 			rc.CloseAndReconnect()
 		}
 	}
@@ -157,6 +187,9 @@ func (rc *RecConn) ReadJSON(v interface{}) error {
 	if rc.IsConnected() {
 		err = rc.Conn.ReadJSON(v)
 		if err != nil {
+			if rc.IsClosedForever() {
+				return ErrClosedForever
+			}
 			rc.CloseAndReconnect()
 		}
 	}
@@ -382,6 +415,9 @@ func (rc *RecConn) keepAlive() {
 
 			<-ticker.C
 			if time.Since(keepAliveResponse.getLastResponse()) > rc.getKeepAliveTimeout() {
+				if rc.IsClosedForever() {
+					log.Println(ErrClosedForever)
+				}
 				rc.CloseAndReconnect()
 				return
 			}
@@ -421,7 +457,7 @@ func (rc *RecConn) connect() {
 			if rc.getKeepAliveTimeout() != 0 {
 				rc.keepAlive()
 			}
-		
+
 			return
 		}
 
@@ -459,4 +495,12 @@ func (rc *RecConn) IsConnected() bool {
 	defer rc.mu.RUnlock()
 
 	return rc.isConnected
+}
+
+// IsClosedForever returns if the connection was closed forever.
+func (rc *RecConn) IsClosedForever() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.closedForever
 }
