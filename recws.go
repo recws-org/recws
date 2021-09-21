@@ -3,6 +3,7 @@
 package recws
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"log"
@@ -59,6 +60,7 @@ type RecConn struct {
 	httpResp      *http.Response
 	dialErr       error
 	dialer        *websocket.Dialer
+	ctx           context.Context
 
 	*websocket.Conn
 }
@@ -311,12 +313,17 @@ func (rc *RecConn) SetTLSClientConfig(tlsClientConfig *tls.Config) {
 	rc.TLSClientConfig = tlsClientConfig
 }
 
-// Dial creates a new client connection.
+// Dial creates a new client connection by calling DialContext with a background context.
+func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
+	rc.DialContext(context.Background(), urlStr, reqHeader)
+}
+
+// DialContext creates a new client connection.
 // The URL url specifies the host and request URI. Use requestHeader to specify
 // the origin (Origin), subprotocols (Sec-WebSocket-Protocol) and cookies
 // (Cookie). Use GetHTTPResponse() method for the response.Header to get
 // the selected subprotocol (Sec-WebSocket-Protocol) and cookies (Set-Cookie).
-func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
+func (rc *RecConn) DialContext(ctx context.Context, urlStr string, reqHeader http.Header) {
 	urlStr, err := rc.parseURL(urlStr)
 
 	if err != nil {
@@ -324,6 +331,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	}
 
 	// Config
+	rc.ctx = ctx
 	rc.setURL(urlStr)
 	rc.setReqHeader(reqHeader)
 	rc.setDefaultRecIntvlMin()
@@ -431,7 +439,7 @@ func (rc *RecConn) connect() {
 
 	for {
 		nextItvl := b.Duration()
-		wsConn, httpResp, err := rc.dialer.Dial(rc.url, rc.reqHeader)
+		wsConn, httpResp, err := rc.dialer.DialContext(rc.ctx, rc.url, rc.reqHeader)
 
 		rc.mu.Lock()
 		rc.Conn = wsConn
@@ -458,6 +466,15 @@ func (rc *RecConn) connect() {
 				rc.keepAlive()
 			}
 
+			return
+		}
+
+		if rc.ctx.Err() != nil {
+			if !rc.getNonVerbose() {
+				log.Println(err)
+				log.Println("Dial: context canceled.")
+			}
+			rc.setClosedForever(true)
 			return
 		}
 
