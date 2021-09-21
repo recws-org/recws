@@ -118,6 +118,10 @@ func (rc *RecConn) CloseForever() {
 //
 // If the connection is closed ErrNotConnected is returned
 func (rc *RecConn) ReadMessage() (messageType int, message []byte, err error) {
+	if rc.IsClosedForever() {
+		err = ErrClosedForever
+		return
+	}
 	err = ErrNotConnected
 	if rc.IsConnected() {
 		messageType, message, err = rc.Conn.ReadMessage()
@@ -138,6 +142,9 @@ func (rc *RecConn) ReadMessage() (messageType int, message []byte, err error) {
 //
 // If the connection is closed ErrNotConnected is returned
 func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
+	if rc.IsClosedForever() {
+		return ErrClosedForever
+	}
 	err := ErrNotConnected
 	if rc.IsConnected() {
 		rc.mu.Lock()
@@ -161,6 +168,9 @@ func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
 //
 // If the connection is closed ErrNotConnected is returned
 func (rc *RecConn) WriteJSON(v interface{}) error {
+	if rc.IsClosedForever() {
+		return ErrClosedForever
+	}
 	err := ErrNotConnected
 	if rc.IsConnected() {
 		rc.mu.Lock()
@@ -185,6 +195,9 @@ func (rc *RecConn) WriteJSON(v interface{}) error {
 //
 // If the connection is closed ErrNotConnected is returned
 func (rc *RecConn) ReadJSON(v interface{}) error {
+	if rc.IsClosedForever() {
+		return ErrClosedForever
+	}
 	err := ErrNotConnected
 	if rc.IsConnected() {
 		err = rc.Conn.ReadJSON(v)
