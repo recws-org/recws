@@ -16,6 +16,8 @@ import (
 	"github.com/jpillora/backoff"
 )
 
+const writeWait = time.Second
+
 // ErrNotConnected is returned when the application read/writes
 // a message and the connection is closed
 var ErrNotConnected = errors.New("websocket: not connected")
@@ -91,6 +93,17 @@ func (rc *RecConn) Close() {
 	rc.setIsConnected(false)
 }
 
+// Shutdown gracefully closes the connection by sending the websocket.CloseMessage.
+func (rc *RecConn) Shutdown() {
+	msg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
+	err := rc.WriteControl(websocket.CloseMessage, msg, time.Now().Add(writeWait))
+	if err != nil && err != websocket.ErrCloseSent {
+		// If close message could not be sent, then close without the handshake.
+		log.Printf("Shutdown: %v", err)
+		rc.Close()
+	}
+}
+
 // ReadMessage is a helper method for getting a reader
 // using NextReader and reading from that reader to a buffer.
 //
@@ -99,7 +112,11 @@ func (rc *RecConn) ReadMessage() (messageType int, message []byte, err error) {
 	err = ErrNotConnected
 	if rc.IsConnected() {
 		messageType, message, err = rc.Conn.ReadMessage()
-		if err != nil {
+		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+			rc.Close()
+			return messageType, message, nil
+		}
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
 			rc.CloseAndReconnect()
 		}
 	}
@@ -117,7 +134,11 @@ func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
 		rc.mu.Lock()
 		err = rc.Conn.WriteMessage(messageType, data)
 		rc.mu.Unlock()
-		if err != nil {
+		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+			rc.Close()
+			return nil
+		}
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
 			rc.CloseAndReconnect()
 		}
 	}
@@ -137,7 +158,11 @@ func (rc *RecConn) WriteJSON(v interface{}) error {
 		rc.mu.Lock()
 		err = rc.Conn.WriteJSON(v)
 		rc.mu.Unlock()
-		if err != nil {
+		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+			rc.Close()
+			return nil
+		}
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
 			rc.CloseAndReconnect()
 		}
 	}
@@ -156,7 +181,11 @@ func (rc *RecConn) ReadJSON(v interface{}) error {
 	err := ErrNotConnected
 	if rc.IsConnected() {
 		err = rc.Conn.ReadJSON(v)
-		if err != nil {
+		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+			rc.Close()
+			return nil
+		}
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
 			rc.CloseAndReconnect()
 		}
 	}
@@ -421,7 +450,7 @@ func (rc *RecConn) connect() {
 			if rc.getKeepAliveTimeout() != 0 {
 				rc.keepAlive()
 			}
-		
+
 			return
 		}
 
