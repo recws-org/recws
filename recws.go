@@ -116,7 +116,7 @@ func (rc *RecConn) ReadMessage() (messageType int, message []byte, err error) {
 			rc.Close()
 			return messageType, message, nil
 		}
-		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
+		if err != nil {
 			rc.CloseAndReconnect()
 		}
 	}
@@ -138,7 +138,7 @@ func (rc *RecConn) WriteMessage(messageType int, data []byte) error {
 			rc.Close()
 			return nil
 		}
-		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
+		if err != nil {
 			rc.CloseAndReconnect()
 		}
 	}
@@ -162,7 +162,7 @@ func (rc *RecConn) WriteJSON(v interface{}) error {
 			rc.Close()
 			return nil
 		}
-		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
+		if err != nil {
 			rc.CloseAndReconnect()
 		}
 	}
@@ -185,7 +185,7 @@ func (rc *RecConn) ReadJSON(v interface{}) error {
 			rc.Close()
 			return nil
 		}
-		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
+		if err != nil {
 			rc.CloseAndReconnect()
 		}
 	}
