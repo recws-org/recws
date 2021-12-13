@@ -16,8 +16,6 @@ import (
 	"github.com/jpillora/backoff"
 )
 
-const writeWait = time.Second
-
 // ErrNotConnected is returned when the application read/writes
 // a message and the connection is closed
 var ErrNotConnected = errors.New("websocket: not connected")
@@ -94,7 +92,8 @@ func (rc *RecConn) Close() {
 }
 
 // Shutdown gracefully closes the connection by sending the websocket.CloseMessage.
-func (rc *RecConn) Shutdown() {
+// The writeWait param defines the duration before the deadline of the write operation is hit.
+func (rc *RecConn) Shutdown(writeWait time.Duration) {
 	msg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
 	err := rc.WriteControl(websocket.CloseMessage, msg, time.Now().Add(writeWait))
 	if err != nil && err != websocket.ErrCloseSent {
