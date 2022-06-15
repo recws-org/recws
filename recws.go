@@ -405,7 +405,13 @@ func (rc *RecConn) writeControlPingMessage() error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	return rc.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
+	defaultDelay := 10 * time.Second
+	delay := rc.getKeepAliveTimeout()
+	if delay > defaultDelay {
+		delay = defaultDelay
+	}
+
+	return rc.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(delay))
 }
 
 func (rc *RecConn) keepAlive() {
