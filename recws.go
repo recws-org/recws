@@ -411,23 +411,18 @@ func (rc *RecConn) getKeepAliveTimeout() time.Duration {
 	return rc.KeepAliveTimeout
 }
 
-func (rc *RecConn) writeControlPingMessage() error {
+func (rc *RecConn) writeControlPingMessage(writeWait time.Duration) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	defaultDelay := 10 * time.Second
-	delay := rc.getKeepAliveTimeout()
-	if delay > defaultDelay {
-		delay = defaultDelay
-	}
-
-	return rc.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(delay))
+	return rc.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeWait))
 }
 
 func (rc *RecConn) keepAlive() {
 	var (
 		keepAliveResponse = new(keepAliveResponse)
-		ticker            = time.NewTicker(rc.getKeepAliveTimeout())
+		keepAliveTimeout  = rc.getKeepAliveTimeout()
+		ticker            = time.NewTicker(keepAliveTimeout)
 	)
 
 	rc.mu.Lock()
@@ -450,12 +445,12 @@ func (rc *RecConn) keepAlive() {
 				continue
 			}
 
-			if err := rc.writeControlPingMessage(); err != nil {
+			if err := rc.writeControlPingMessage(keepAliveTimeout); err != nil {
 				log.Println(err)
 			}
 
 			<-ticker.C
-			if time.Since(keepAliveResponse.getLastResponse()) > rc.getKeepAliveTimeout() {
+			if time.Since(keepAliveResponse.getLastResponse()) > keepAliveTimeout {
 				rc.CloseAndReconnect()
 				return
 			}
