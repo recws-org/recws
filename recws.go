@@ -41,6 +41,8 @@ type RecConn struct {
 	TLSClientConfig *tls.Config
 	// SubscribeHandler fires after the connection successfully establish.
 	SubscribeHandler func() error
+	// DisconnectHandler fires after the connection has been closed
+	DisconnectHandler func()
 	// PongHandler fires on every Pong control message received
 	PongHandler func() error
 	// KeepAliveTimeout is an interval for sending ping/pong messages
@@ -91,6 +93,10 @@ func (rc *RecConn) Close() {
 	}
 
 	rc.setIsConnected(false)
+
+	if rc.hasDisconnectHandler() {
+		rc.DisconnectHandler()
+	}
 }
 
 // Shutdown gracefully closes the connection by sending the websocket.CloseMessage.
@@ -369,6 +375,13 @@ func (rc *RecConn) hasSubscribeHandler() bool {
 	defer rc.mu.RUnlock()
 
 	return rc.SubscribeHandler != nil
+}
+
+func (rc *RecConn) hasDisconnectHandler() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.DisconnectHandler != nil
 }
 
 func (rc *RecConn) hasPongHandler() bool {
