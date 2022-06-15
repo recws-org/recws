@@ -276,15 +276,6 @@ func (rc *RecConn) setDefaultHandshakeTimeout() {
 	}
 }
 
-func (rc *RecConn) setDefaultKeepAliveTimeout() {
-	rc.mu.Lock()
-	defer rc.mu.Unlock()
-
-	if rc.KeepAliveTimeout <= 0 {
-		rc.KeepAliveTimeout = 10 * time.Second
-	}
-}
-
 func (rc *RecConn) setDefaultProxy() {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
@@ -345,7 +336,6 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	rc.setDefaultRecIntvlMax()
 	rc.setDefaultRecIntvlFactor()
 	rc.setDefaultHandshakeTimeout()
-	rc.setDefaultKeepAliveTimeout()
 	rc.setDefaultProxy()
 	rc.setDefaultDialer(rc.getTLSClientConfig(), rc.getHandshakeTimeout())
 
@@ -487,7 +477,7 @@ func (rc *RecConn) connect() {
 				}
 			}
 
-			if rc.getKeepAliveTimeout() != 0 {
+			if rc.getKeepAliveTimeout() > 0 {
 				rc.keepAlive()
 			}
 
