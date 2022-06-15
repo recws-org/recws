@@ -42,7 +42,7 @@ type RecConn struct {
 	// SubscribeHandler fires after the connection successfully establish.
 	SubscribeHandler func() error
 	// DisconnectHandler fires after the connection has been closed
-	DisconnectHandler func()
+	DisconnectHandler func(isReconnecting bool)
 	// PongHandler fires on every Pong control message received
 	PongHandler func() error
 	// KeepAliveTimeout is an interval for sending ping/pong messages
@@ -51,20 +51,23 @@ type RecConn struct {
 	// NonVerbose suppress connecting/reconnecting messages.
 	NonVerbose bool
 
-	isConnected bool
-	mu          sync.RWMutex
-	url         string
-	reqHeader   http.Header
-	httpResp    *http.Response
-	dialErr     error
-	dialer      *websocket.Dialer
+	isConnected    bool
+	isReconnecting bool
+	mu             sync.RWMutex
+	url            string
+	reqHeader      http.Header
+	httpResp       *http.Response
+	dialErr        error
+	dialer         *websocket.Dialer
 
 	*websocket.Conn
 }
 
 // CloseAndReconnect will try to reconnect.
 func (rc *RecConn) CloseAndReconnect() {
+	rc.setIsReconnecting(true)
 	rc.Close()
+	rc.setIsReconnecting(false)
 	go rc.connect()
 }
 
@@ -95,7 +98,7 @@ func (rc *RecConn) Close() {
 	rc.setIsConnected(false)
 
 	if rc.hasDisconnectHandler() {
-		rc.DisconnectHandler()
+		rc.DisconnectHandler(rc.getIsReconnecting())
 	}
 }
 
@@ -514,4 +517,18 @@ func (rc *RecConn) IsConnected() bool {
 	defer rc.mu.RUnlock()
 
 	return rc.isConnected
+}
+
+func (rc *RecConn) setIsReconnecting(isReconnecting bool) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	rc.isReconnecting = isReconnecting
+}
+
+func (rc *RecConn) getIsReconnecting() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.isReconnecting
 }
