@@ -41,6 +41,8 @@ type RecConn struct {
 	TLSClientConfig *tls.Config
 	// SubscribeHandler fires after the connection successfully establish.
 	SubscribeHandler func() error
+	// PongHandler fires on every Pong control message received
+	PongHandler func() error
 	// KeepAliveTimeout is an interval for sending ping/pong messages
 	// disabled if 0
 	KeepAliveTimeout time.Duration
@@ -369,6 +371,13 @@ func (rc *RecConn) hasSubscribeHandler() bool {
 	return rc.SubscribeHandler != nil
 }
 
+func (rc *RecConn) hasPongHandler() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.PongHandler != nil
+}
+
 func (rc *RecConn) getKeepAliveTimeout() time.Duration {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
@@ -392,6 +401,11 @@ func (rc *RecConn) keepAlive() {
 	rc.mu.Lock()
 	rc.Conn.SetPongHandler(func(msg string) error {
 		keepAliveResponse.setLastResponse()
+
+		if rc.hasPongHandler() {
+			return rc.PongHandler()
+		}
+
 		return nil
 	})
 	rc.mu.Unlock()
