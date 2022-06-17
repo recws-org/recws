@@ -42,7 +42,7 @@ type RecConn struct {
 	// SubscribeHandler fires after the connection successfully establish.
 	SubscribeHandler func() error
 	// DisconnectHandler fires after the connection has been closed
-	DisconnectHandler func(isReconnecting bool)
+	DisconnectHandler func()
 	// PongHandler fires on every Pong control message received
 	PongHandler func() error
 	// KeepAliveTimeout is an interval for sending ping/pong messages
@@ -67,7 +67,6 @@ type RecConn struct {
 func (rc *RecConn) CloseAndReconnect() {
 	rc.setIsReconnecting(true)
 	rc.Close()
-	rc.setIsReconnecting(false)
 	go rc.connect()
 }
 
@@ -98,7 +97,7 @@ func (rc *RecConn) Close() {
 	rc.setIsConnected(false)
 
 	if rc.hasDisconnectHandler() {
-		rc.DisconnectHandler(rc.getIsReconnecting())
+		rc.DisconnectHandler()
 	}
 }
 
@@ -477,6 +476,7 @@ func (rc *RecConn) connect() {
 				}
 			}
 
+			rc.setIsReconnecting(false)
 			if rc.getKeepAliveTimeout() > 0 {
 				rc.keepAlive()
 			}
@@ -527,7 +527,8 @@ func (rc *RecConn) setIsReconnecting(isReconnecting bool) {
 	rc.isReconnecting = isReconnecting
 }
 
-func (rc *RecConn) getIsReconnecting() bool {
+// IsReconnecting returns whether the connection is being reinstated
+func (rc *RecConn) IsReconnecting() bool {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
 
