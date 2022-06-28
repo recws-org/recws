@@ -65,6 +65,10 @@ type RecConn struct {
 
 // CloseAndReconnect will try to reconnect.
 func (rc *RecConn) CloseAndReconnect() {
+	if rc.IsReconnecting() {
+		return
+	}
+
 	rc.setIsReconnecting(true)
 	rc.Close()
 	go rc.connect()
