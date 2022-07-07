@@ -384,10 +384,7 @@ func (rc *RecConn) writeControlPingMessage() error {
 }
 
 func (rc *RecConn) keepAlive() {
-	var (
-		keepAliveResponse = new(keepAliveResponse)
-		ticker            = time.NewTicker(rc.getKeepAliveTimeout())
-	)
+	keepAliveResponse := new(keepAliveResponse)
 
 	rc.mu.Lock()
 	rc.Conn.SetPongHandler(func(msg string) error {
@@ -395,6 +392,8 @@ func (rc *RecConn) keepAlive() {
 		return nil
 	})
 	rc.mu.Unlock()
+	
+	ticker := time.NewTicker(rc.getKeepAliveTimeout())
 
 	go func() {
 		defer ticker.Stop()
