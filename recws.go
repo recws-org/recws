@@ -478,16 +478,16 @@ func (rc *RecConn) connect() {
 		rc.mu.Unlock()
 
 		if err == nil {
-			if !rc.getNonVerbose() {
-				log.Printf("Dial: connection was successfully established with %s\n", rc.url)
-			}
-
 			if rc.hasSubscribeHandler() {
 				if err := rc.SubscribeHandler(); err != nil {
 					log.Fatalf("Dial: connect handler failed with %s", err.Error())
 				}
 				if !rc.getNonVerbose() {
 					log.Printf("Dial: connect handler was successfully established with %s\n", rc.url)
+				}
+			} else {
+				if !rc.getNonVerbose() {
+					log.Printf("Dial: connection was successfully established with %s\n", rc.url)
 				}
 			}
 
