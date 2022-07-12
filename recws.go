@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -62,6 +63,8 @@ type RecConn struct {
 
 	*websocket.Conn
 }
+
+var keepAliveCounter int64
 
 // CloseAndReconnect will try to reconnect.
 func (rc *RecConn) CloseAndReconnect() {
@@ -416,7 +419,12 @@ func (rc *RecConn) keepAlive() {
 		keepAliveResponse = new(keepAliveResponse)
 		keepAliveTimeout  = rc.getKeepAliveTimeout()
 		ticker            = time.NewTicker(keepAliveTimeout)
+		keepAliveId       = atomic.AddInt64(&keepAliveCounter, 1)
 	)
+
+	if !rc.getNonVerbose() {
+		log.Printf("WS: started Keep Alive #%d\n", keepAliveId)
+	}
 
 	rc.mu.Lock()
 	rc.Conn.SetPongHandler(func(msg string) error {
@@ -445,6 +453,9 @@ func (rc *RecConn) keepAlive() {
 			<-ticker.C
 			if time.Since(keepAliveResponse.getLastResponse()) > keepAliveTimeout {
 				rc.CloseAndReconnect()
+				if !rc.getNonVerbose() {
+					log.Printf("WS: closed Keep Alive #%d\n", keepAliveId)
+				}
 				return
 			}
 		}
