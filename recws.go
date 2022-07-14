@@ -49,6 +49,9 @@ type RecConn struct {
 	// KeepAliveTimeout is an interval for sending ping/pong messages
 	// disabled if 0
 	KeepAliveTimeout time.Duration
+	// keepAliveDone is a channel which triggers the closing of all
+	// previous monitoring goroutines
+	keepAliveDone chan struct{}
 	// NonVerbose suppress connecting/reconnecting messages.
 	NonVerbose bool
 
@@ -407,6 +410,19 @@ func (rc *RecConn) getKeepAliveTimeout() time.Duration {
 	return rc.KeepAliveTimeout
 }
 
+func (rc *RecConn) resetKeepAliveDone() chan struct{} {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	if rc.keepAliveDone != nil {
+		close(rc.keepAliveDone)
+	}
+
+	rc.keepAliveDone = make(chan struct{})
+
+	return rc.keepAliveDone
+}
+
 func (rc *RecConn) writeControlPingMessage(writeWait time.Duration) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
@@ -418,8 +434,11 @@ func (rc *RecConn) keepAlive() {
 	var (
 		keepAliveResponse = new(keepAliveResponse)
 		keepAliveTimeout  = rc.getKeepAliveTimeout()
-		ticker            = time.NewTicker(keepAliveTimeout)
+		keepAliveDone     = rc.resetKeepAliveDone()
 		keepAliveId       = atomic.AddInt64(&keepAliveCounter, 1)
+		ticker            = time.NewTicker(keepAliveTimeout)
+		pingTicker        = time.NewTicker(time.Second)
+		pingSent          = false
 	)
 
 	if !rc.getNonVerbose() {
@@ -440,23 +459,29 @@ func (rc *RecConn) keepAlive() {
 
 	go func() {
 		defer ticker.Stop()
+		defer pingTicker.Stop()
 
 		for {
-			if !rc.IsConnected() {
-				continue
-			}
-
-			if err := rc.writeControlPingMessage(keepAliveTimeout); err != nil {
-				log.Println(err)
-			}
-
-			<-ticker.C
-			if time.Since(keepAliveResponse.getLastResponse()) > keepAliveTimeout {
-				rc.CloseAndReconnect()
-				if !rc.getNonVerbose() {
-					log.Printf("WS: closed Keep Alive #%d\n", keepAliveId)
-				}
+			select {
+			case <-keepAliveDone:
+				log.Printf("WS: closed Keep Alive #%d\n", keepAliveId)
 				return
+			case <-pingTicker.C:
+				if !pingSent && rc.IsConnected() {
+					if err := rc.writeControlPingMessage(keepAliveTimeout); err != nil {
+						log.Println(err)
+					}
+					pingSent = true
+				}
+			case <-ticker.C:
+				if time.Since(keepAliveResponse.getLastResponse()) > keepAliveTimeout {
+					rc.CloseAndReconnect()
+					if !rc.getNonVerbose() {
+						log.Printf("WS: closed Keep Alive #%d\n", keepAliveId)
+					}
+					return
+				}
+				pingSent = false
 			}
 		}
 	}()
