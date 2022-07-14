@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -41,25 +42,40 @@ type RecConn struct {
 	TLSClientConfig *tls.Config
 	// SubscribeHandler fires after the connection successfully establish.
 	SubscribeHandler func() error
+	// DisconnectHandler fires after the connection has been closed
+	DisconnectHandler func()
+	// PongHandler fires on every Pong control message received
+	PongHandler func() error
 	// KeepAliveTimeout is an interval for sending ping/pong messages
 	// disabled if 0
 	KeepAliveTimeout time.Duration
+	// keepAliveDone is a channel which triggers the closing of all
+	// previous monitoring goroutines
+	keepAliveDone chan struct{}
 	// NonVerbose suppress connecting/reconnecting messages.
 	NonVerbose bool
 
-	isConnected bool
-	mu          sync.RWMutex
-	url         string
-	reqHeader   http.Header
-	httpResp    *http.Response
-	dialErr     error
-	dialer      *websocket.Dialer
+	isConnected    bool
+	isReconnecting bool
+	mu             sync.RWMutex
+	url            string
+	reqHeader      http.Header
+	httpResp       *http.Response
+	dialErr        error
+	dialer         *websocket.Dialer
 
 	*websocket.Conn
 }
 
+var keepAliveCounter int64
+
 // CloseAndReconnect will try to reconnect.
 func (rc *RecConn) CloseAndReconnect() {
+	if rc.IsReconnecting() {
+		return
+	}
+
+	rc.setIsReconnecting(true)
 	rc.Close()
 	go rc.connect()
 }
@@ -89,6 +105,10 @@ func (rc *RecConn) Close() {
 	}
 
 	rc.setIsConnected(false)
+
+	if rc.hasDisconnectHandler() {
+		rc.DisconnectHandler()
+	}
 }
 
 // Shutdown gracefully closes the connection by sending the websocket.CloseMessage.
@@ -233,7 +253,7 @@ func (rc *RecConn) setDefaultRecIntvlMin() {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	if rc.RecIntvlMin == 0 {
+	if rc.RecIntvlMin <= 0 {
 		rc.RecIntvlMin = 2 * time.Second
 	}
 }
@@ -242,7 +262,7 @@ func (rc *RecConn) setDefaultRecIntvlMax() {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	if rc.RecIntvlMax == 0 {
+	if rc.RecIntvlMax <= 0 {
 		rc.RecIntvlMax = 30 * time.Second
 	}
 }
@@ -251,7 +271,7 @@ func (rc *RecConn) setDefaultRecIntvlFactor() {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	if rc.RecIntvlFactor == 0 {
+	if rc.RecIntvlFactor <= 0 {
 		rc.RecIntvlFactor = 1.5
 	}
 }
@@ -260,7 +280,7 @@ func (rc *RecConn) setDefaultHandshakeTimeout() {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	if rc.HandshakeTimeout == 0 {
+	if rc.HandshakeTimeout <= 0 {
 		rc.HandshakeTimeout = 2 * time.Second
 	}
 }
@@ -369,6 +389,20 @@ func (rc *RecConn) hasSubscribeHandler() bool {
 	return rc.SubscribeHandler != nil
 }
 
+func (rc *RecConn) hasDisconnectHandler() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.DisconnectHandler != nil
+}
+
+func (rc *RecConn) hasPongHandler() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.PongHandler != nil
+}
+
 func (rc *RecConn) getKeepAliveTimeout() time.Duration {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
@@ -376,42 +410,78 @@ func (rc *RecConn) getKeepAliveTimeout() time.Duration {
 	return rc.KeepAliveTimeout
 }
 
-func (rc *RecConn) writeControlPingMessage() error {
+func (rc *RecConn) resetKeepAliveDone() chan struct{} {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	if rc.keepAliveDone != nil {
+		close(rc.keepAliveDone)
+	}
+
+	rc.keepAliveDone = make(chan struct{})
+
+	return rc.keepAliveDone
+}
+
+func (rc *RecConn) writeControlPingMessage(writeWait time.Duration) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	return rc.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
+	return rc.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeWait))
 }
 
 func (rc *RecConn) keepAlive() {
 	var (
 		keepAliveResponse = new(keepAliveResponse)
-		ticker            = time.NewTicker(rc.getKeepAliveTimeout())
+		keepAliveTimeout  = rc.getKeepAliveTimeout()
+		keepAliveDone     = rc.resetKeepAliveDone()
+		keepAliveId       = atomic.AddInt64(&keepAliveCounter, 1)
+		ticker            = time.NewTicker(keepAliveTimeout)
+		pingTicker        = time.NewTicker(time.Second)
+		pingSent          = false
 	)
+
+	if !rc.getNonVerbose() {
+		log.Printf("WS: started Keep Alive #%d\n", keepAliveId)
+	}
 
 	rc.mu.Lock()
 	rc.Conn.SetPongHandler(func(msg string) error {
 		keepAliveResponse.setLastResponse()
+
+		if rc.hasPongHandler() {
+			return rc.PongHandler()
+		}
+
 		return nil
 	})
 	rc.mu.Unlock()
 
 	go func() {
 		defer ticker.Stop()
+		defer pingTicker.Stop()
 
 		for {
-			if !rc.IsConnected() {
-				continue
-			}
-
-			if err := rc.writeControlPingMessage(); err != nil {
-				log.Println(err)
-			}
-
-			<-ticker.C
-			if time.Since(keepAliveResponse.getLastResponse()) > rc.getKeepAliveTimeout() {
-				rc.CloseAndReconnect()
+			select {
+			case <-keepAliveDone:
+				log.Printf("WS: closed Keep Alive #%d\n", keepAliveId)
 				return
+			case <-pingTicker.C:
+				if !pingSent && rc.IsConnected() {
+					if err := rc.writeControlPingMessage(keepAliveTimeout); err != nil {
+						log.Println(err)
+					}
+					pingSent = true
+				}
+			case <-ticker.C:
+				if time.Since(keepAliveResponse.getLastResponse()) > keepAliveTimeout {
+					rc.CloseAndReconnect()
+					if !rc.getNonVerbose() {
+						log.Printf("WS: closed Keep Alive #%d\n", keepAliveId)
+					}
+					return
+				}
+				pingSent = false
 			}
 		}
 	}()
@@ -433,10 +503,6 @@ func (rc *RecConn) connect() {
 		rc.mu.Unlock()
 
 		if err == nil {
-			if !rc.getNonVerbose() {
-				log.Printf("Dial: connection was successfully established with %s\n", rc.url)
-			}
-
 			if rc.hasSubscribeHandler() {
 				if err := rc.SubscribeHandler(); err != nil {
 					log.Fatalf("Dial: connect handler failed with %s", err.Error())
@@ -444,9 +510,14 @@ func (rc *RecConn) connect() {
 				if !rc.getNonVerbose() {
 					log.Printf("Dial: connect handler was successfully established with %s\n", rc.url)
 				}
+			} else {
+				if !rc.getNonVerbose() {
+					log.Printf("Dial: connection was successfully established with %s\n", rc.url)
+				}
 			}
 
-			if rc.getKeepAliveTimeout() != 0 {
+			rc.setIsReconnecting(false)
+			if rc.getKeepAliveTimeout() > 0 {
 				rc.keepAlive()
 			}
 
@@ -487,4 +558,19 @@ func (rc *RecConn) IsConnected() bool {
 	defer rc.mu.RUnlock()
 
 	return rc.isConnected
+}
+
+func (rc *RecConn) setIsReconnecting(isReconnecting bool) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	rc.isReconnecting = isReconnecting
+}
+
+// IsReconnecting returns whether the connection is being reinstated
+func (rc *RecConn) IsReconnecting() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	return rc.isReconnecting
 }
