@@ -1,6 +1,6 @@
-module github.com/recws-org/recws
+module github.com/nikepan/recws
 
-go 1.17
+go 1.18
 
 require (
 	github.com/gorilla/websocket v1.4.2
