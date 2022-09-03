@@ -2,6 +2,8 @@
 
 # recws
 
+***This is fork of [recws-org/recws](https://github.com/recws-org/recws) with some fixes***
+
 Reconnecting WebSocket is a websocket client based on [gorilla/websocket](https://github.com/gorilla/websocket) that will automatically reconnect if the connection is dropped - thread safe!
 
 [![Build Status](https://travis-ci.com/recws-org/recws.svg?branch=master)](https://travis-ci.com/recws-org/recws)
@@ -12,7 +14,7 @@ Reconnecting WebSocket is a websocket client based on [gorilla/websocket](https:
 ## Installation
 
 ```bash
-go get github.com/recws-org/recws
+go get github.com/nikepan/recws
 ```
 
 ## Sponsors
@@ -21,8 +23,8 @@ go get github.com/recws-org/recws
 
 ## Logo
 
-- Logo by [Anastasia Marx](https://www.behance.net/AnastasiaMarx)  
-- Gopher by [Gophers](https://github.com/egonelbre/gophers) 
+- Logo by [Anastasia Marx](https://www.behance.net/AnastasiaMarx)
+- Gopher by [Gophers](https://github.com/egonelbre/gophers)
 
 ## License
 
