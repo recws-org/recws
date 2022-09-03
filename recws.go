@@ -468,7 +468,7 @@ func (rc *RecConn) connect() {
 					rc.log(LogValues{Msg: "Dial: connect handler failed", Err: err, Fatal: true})
 				}
 				if !rc.getNonVerbose() {
-					rc.log(LogValues{Msg: "Dial: connect handler was successfully established with %s", Url: rc.url})
+					rc.log(LogValues{Msg: "Dial: connect handler was successfully established", Url: rc.url})
 				}
 			}
 
