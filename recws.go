@@ -482,7 +482,7 @@ func (rc *RecConn) connect() {
 		}
 
 		if !rc.getNonVerbose() {
-			rc.log(LogValues{Err: err, Msg: fmt.Sprintf("Dial: will try again in %+v seconds", nextItvl)})
+			rc.log(LogValues{Err: err, Msg: fmt.Sprintf("Dial: will try again in %+v seconds", nextItvl), Url: rc.url})
 		}
 
 		time.Sleep(nextItvl)
