@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
-	"github.com/recws-org/recws"
+	"errors"
 	"log"
 	"time"
+
+	"github.com/recws-org/recws"
 )
 
 func main() {
@@ -28,6 +30,7 @@ func main() {
 		default:
 			if !ws.IsConnected() {
 				log.Printf("Websocket disconnected %s", ws.GetURL())
+				time.Sleep(time.Millisecond * 100) // some release cpu while waiting for reconnect
 				continue
 			}
 
@@ -40,6 +43,13 @@ func main() {
 			if err != nil {
 				log.Printf("Error: ReadMessage %s", ws.GetURL())
 				return
+			}
+			if err != nil {
+				if !errors.Is(err, recws.ErrNotConnected) {
+					log.Printf("Error: ReadMessage %s", ws.GetURL())
+					time.Sleep(time.Second * 5) // throttle repeated errors
+				}
+				continue // go to next read
 			}
 
 			log.Printf("Success: %s", message)
