@@ -215,7 +215,6 @@ func (rc *RecConn) parseURL(urlStr string) (string, error) {
 	}
 
 	u, err := url.Parse(urlStr)
-
 	if err != nil {
 		return "", errors.New("url: " + err.Error())
 	}
@@ -316,7 +315,6 @@ func (rc *RecConn) SetTLSClientConfig(tlsClientConfig *tls.Config) {
 // the selected subprotocol (Sec-WebSocket-Protocol) and cookies (Set-Cookie).
 func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	urlStr, err := rc.parseURL(urlStr)
-
 	if err != nil {
 		log.Fatalf("Dial: %v", err)
 	}

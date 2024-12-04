@@ -1,11 +1,12 @@
 install:
 	go get
 
-linter:
+linter-golangci-lint:
 	golangci-lint run
 
-ls-lint:
-	curl -sL -o ls-lint https://github.com/loeffel-io/ls-lint/releases/download/v1.10.0/ls-lint-linux && chmod +x ls-lint && ./ls-lint
+linter-ls-lint:
+	curl -sL -o ls-lint https://github.com/loeffel-io/ls-lint/releases/download/v2.3.0-beta.3/ls-lint-darwin-arm64 && chmod +x ls-lint && ./ls-lint
 
-test:
-	make linter
+linter:
+	make linter-ls-lint
+	make linter-golangci-lint

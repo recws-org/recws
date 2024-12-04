@@ -1,6 +1,8 @@
 ls:
-  .dir: snake_case
-  .go: snake_case
+  dir: snake_case
+  .*: snake_case
+  .md: SCREAMING_SNAKE_CASE
+  .png: kebab-case
 
 ignore:
   - .git
