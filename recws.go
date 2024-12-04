@@ -49,13 +49,14 @@ type RecConn struct {
 	// Compression enables per-message compression as defined in https://datatracker.ietf.org/doc/html/rfc7692
 	Compression bool
 
-	isConnected bool
-	mu          sync.RWMutex
-	url         string
-	reqHeader   http.Header
-	httpResp    *http.Response
-	dialErr     error
-	dialer      *websocket.Dialer
+	isConnected      bool
+	isConnectRunning bool
+	mu               sync.RWMutex
+	url              string
+	reqHeader        http.Header
+	httpResp         *http.Response
+	dialErr          error
+	dialer           *websocket.Dialer
 
 	*websocket.Conn
 }
@@ -419,6 +420,15 @@ func (rc *RecConn) keepAlive() {
 }
 
 func (rc *RecConn) connect() {
+	rc.mu.Lock()
+	canStart := !rc.isConnectRunning
+	rc.isConnectRunning = true
+	rc.mu.Unlock()
+
+	if !canStart {
+		return
+	}
+
 	b := rc.getBackoff()
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -450,6 +460,10 @@ func (rc *RecConn) connect() {
 			if rc.getKeepAliveTimeout() != 0 {
 				rc.keepAlive()
 			}
+
+			rc.mu.Lock()
+			rc.isConnectRunning = false
+			rc.mu.Unlock()
 
 			return
 		}
