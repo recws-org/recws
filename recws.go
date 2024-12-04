@@ -46,6 +46,8 @@ type RecConn struct {
 	KeepAliveTimeout time.Duration
 	// NonVerbose suppress connecting/reconnecting messages.
 	NonVerbose bool
+	// Compression enables per-message compression as defined in https://datatracker.ietf.org/doc/html/rfc7692
+	Compression bool
 
 	isConnected bool
 	mu          sync.RWMutex
@@ -274,14 +276,15 @@ func (rc *RecConn) setDefaultProxy() {
 	}
 }
 
-func (rc *RecConn) setDefaultDialer(tlsClientConfig *tls.Config, handshakeTimeout time.Duration) {
+func (rc *RecConn) setDefaultDialer(tlsClientConfig *tls.Config, handshakeTimeout time.Duration, compression bool) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
 	rc.dialer = &websocket.Dialer{
-		HandshakeTimeout: handshakeTimeout,
-		Proxy:            rc.Proxy,
-		TLSClientConfig:  tlsClientConfig,
+		HandshakeTimeout:  handshakeTimeout,
+		Proxy:             rc.Proxy,
+		TLSClientConfig:   tlsClientConfig,
+		EnableCompression: compression,
 	}
 }
 
@@ -326,7 +329,7 @@ func (rc *RecConn) Dial(urlStr string, reqHeader http.Header) {
 	rc.setDefaultRecIntvlFactor()
 	rc.setDefaultHandshakeTimeout()
 	rc.setDefaultProxy()
-	rc.setDefaultDialer(rc.getTLSClientConfig(), rc.getHandshakeTimeout())
+	rc.setDefaultDialer(rc.getTLSClientConfig(), rc.getHandshakeTimeout(), rc.Compression)
 
 	// Connect
 	go rc.connect()
