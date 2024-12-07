@@ -84,13 +84,12 @@ func (rc *RecConn) getConn() *websocket.Conn {
 // Close closes the underlying network connection without
 // sending or waiting for a close frame.
 func (rc *RecConn) Close() {
-	if rc.getConn() != nil {
-		rc.mu.Lock()
+	rc.mu.Lock()
+	if rc.Conn != nil {
 		rc.Conn.Close()
-		rc.mu.Unlock()
 	}
-
-	rc.setIsConnected(false)
+	rc.isConnected = false
+	rc.mu.Unlock()
 }
 
 // Shutdown gracefully closes the connection by sending the websocket.CloseMessage.
