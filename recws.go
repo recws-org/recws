@@ -410,7 +410,8 @@ func (rc *RecConn) keepAlive() {
 			}
 
 			<-ticker.C
-			if time.Since(keepAliveResponse.getLastResponse()) > rc.getKeepAliveTimeout() {
+			timeoutOffset := time.Millisecond * 500
+			if time.Since(keepAliveResponse.getLastResponse()) > rc.getKeepAliveTimeout()+timeoutOffset {
 				rc.CloseAndReconnect()
 				return
 			}
